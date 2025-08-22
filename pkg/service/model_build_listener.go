@@ -3,14 +3,14 @@ package service
 import (
 	"context"
 	"fmt"
-	"strconv"
-
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/pkg/errors"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"sigs.k8s.io/aws-load-balancer-controller/pkg/annotations"
 	elbv2model "sigs.k8s.io/aws-load-balancer-controller/pkg/model/elbv2"
+	"strconv"
+	"strings"
 )
 
 var (
@@ -176,15 +176,23 @@ func (t *defaultModelBuildTask) buildSSLNegotiationPolicy(_ context.Context) *st
 	return &t.defaultSSLPolicy
 }
 
-func (t *defaultModelBuildTask) buildListenerCertificates(_ context.Context) []elbv2model.Certificate {
+func (t *defaultModelBuildTask) buildListenerCertificates(_ context.Context) ([]elbv2model.Certificate, error) {
 	var rawCertificateARNs []string
 	_ = t.annotationParser.ParseStringSliceAnnotation(annotations.SvcLBSuffixSSLCertificate, &rawCertificateARNs, t.service.Annotations)
 
 	var certificates []elbv2model.Certificate
 	for _, cert := range rawCertificateARNs {
-		certificates = append(certificates, elbv2model.Certificate{CertificateARN: aws.String(cert)})
+		certificate := elbv2model.Certificate{CertificateARN: aws.String(cert)}
+
+		// Compare region from certificate and the one used by LBC
+		certificateRegion := t.getRegionFromARN(*certificate.CertificateARN)
+		if certificateRegion == t.region {
+			certificates = append(certificates, elbv2model.Certificate{CertificateARN: aws.String(cert)})
+		} else {
+			return nil, errors.Errorf("certificate region %v doesn't match load balancer region %v", certificateRegion, t.region)
+		}
 	}
-	return certificates
+	return certificates, nil
 }
 
 func validateTLSPortsSet(rawTLSPorts []string, ports []corev1.ServicePort) error {
@@ -261,7 +269,10 @@ type listenerConfig struct {
 }
 
 func (t *defaultModelBuildTask) buildListenerConfig(ctx context.Context, tcpUdpPortsSet sets.Set[int32]) (*listenerConfig, error) {
-	certificates := t.buildListenerCertificates(ctx)
+	certificates, err := t.buildListenerCertificates(ctx)
+	if err != nil {
+		return nil, err
+	}
 	tlsPortsSet, err := t.buildTLSPortsSet(ctx)
 	if err != nil {
 		return nil, err
@@ -331,4 +342,14 @@ func (t *defaultModelBuildTask) isTCPUDPEnabledForService(svcAnnotations map[str
 		return nil
 	}
 	return &rawEnabled
+}
+
+func (t *defaultModelBuildTask) getRegionFromARN(arn string) string {
+	if strings.HasPrefix(arn, "arn:") {
+		arnElements := strings.Split(arn, ":")
+		if len(arnElements) > 3 {
+			return arnElements[3]
+		}
+	}
+	return ""
 }

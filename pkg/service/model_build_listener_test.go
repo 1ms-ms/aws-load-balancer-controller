@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
@@ -98,6 +99,7 @@ func Test_defaultModelBuilderTask_buildListenerConfig(t *testing.T) {
 		svc     *corev1.Service
 		wantErr error
 		want    *listenerConfig
+		region  string
 	}{
 		{
 			name: "Service with unused ports in the ssl-ports annotation, Unused ports provided",
@@ -165,6 +167,63 @@ func Test_defaultModelBuilderTask_buildListenerConfig(t *testing.T) {
 				tcpUdpPortsSet:  sets.New[int32](),
 			},
 		},
+		{
+			name: "Services with certificates in different regions",
+			svc: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						"service.beta.kubernetes.io/aws-load-balancer-ssl-cert": "arn:aws:acm:eu-central-1:444455556666:certificate/certificate_ID,arn:aws:acm:eu-west-1:444455556666:certificate/certificate_ID2",
+					},
+				},
+				Spec: corev1.ServiceSpec{
+					Type:  corev1.ServiceTypeLoadBalancer,
+					Ports: []corev1.ServicePort{},
+				},
+			},
+			region:  "eu-central-1",
+			wantErr: errors.New("certificate region eu-west-1 doesn't match load balancer region eu-central-1"),
+		},
+		{
+			name: "Service with certificates in the same region",
+			svc: &corev1.Service{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{
+						"service.beta.kubernetes.io/aws-load-balancer-ssl-ports": "83",
+						"service.beta.kubernetes.io/aws-load-balancer-ssl-cert":  "arn:aws:acm:eu-central-1:444455556666:certificate/certificate_ID,arn:aws:acm:eu-central-1:444455556666:certificate/certificate_ID2",
+					},
+				},
+				Spec: corev1.ServiceSpec{
+					Type: corev1.ServiceTypeLoadBalancer,
+					Ports: []corev1.ServicePort{
+						{
+							Name:       "http",
+							Port:       80,
+							TargetPort: intstr.FromInt(80),
+							Protocol:   corev1.ProtocolTCP,
+							NodePort:   31223,
+						},
+						{
+							Name:       "alt2",
+							Port:       83,
+							TargetPort: intstr.FromInt(8883),
+							Protocol:   corev1.ProtocolTCP,
+							NodePort:   32323,
+						},
+					},
+				},
+			},
+			region: "eu-central-1",
+			want: &listenerConfig{
+				certificates: []elbv2model.Certificate{
+					{CertificateARN: aws.String("arn:aws:acm:eu-central-1:444455556666:certificate/certificate_ID")},
+					{CertificateARN: aws.String("arn:aws:acm:eu-central-1:444455556666:certificate/certificate_ID2")},
+				},
+				tlsPortsSet:     sets.New("83"),
+				sslPolicy:       new(string),
+				backendProtocol: "",
+				tcpUdpPortsSet:  sets.New[int32](),
+			},
+		},
 	}
 
 	for _, tt := range tests {
@@ -173,6 +232,7 @@ func Test_defaultModelBuilderTask_buildListenerConfig(t *testing.T) {
 			builder := &defaultModelBuildTask{
 				annotationParser: parser,
 				service:          tt.svc,
+				region:           tt.region,
 			}
 			got, err := builder.buildListenerConfig(context.Background(), sets.New[int32]())
 			if tt.wantErr != nil {

@@ -42,7 +42,7 @@ type ModelBuilder interface {
 // NewDefaultModelBuilder construct a new defaultModelBuilder
 func NewDefaultModelBuilder(annotationParser annotations.Parser, subnetsResolver networking.SubnetsResolver,
 	vpcInfoProvider networking.VPCInfoProvider, vpcID string, trackingProvider tracking.Provider,
-	elbv2TaggingManager elbv2deploy.TaggingManager, ec2Client services.EC2, featureGates config.FeatureGates, clusterName string, defaultTags map[string]string,
+	elbv2TaggingManager elbv2deploy.TaggingManager, ec2Client services.EC2, featureGates config.FeatureGates, clusterName string, region string, defaultTags map[string]string,
 	externalManagedTags []string, defaultSSLPolicy string, defaultTargetType string, defaultLoadBalancerScheme string, enableIPTargetType bool, serviceUtils ServiceUtils,
 	backendSGProvider networking.BackendSGProvider, sgResolver networking.SecurityGroupResolver, enableBackendSG bool, defaultEnableManageBackendSGRules bool,
 	disableRestrictedSGRules bool, logger logr.Logger, metricsCollector lbcmetrics.MetricCollector, tcpUdpEnabled bool) *defaultModelBuilder {
@@ -55,6 +55,7 @@ func NewDefaultModelBuilder(annotationParser annotations.Parser, subnetsResolver
 		featureGates:               featureGates,
 		serviceUtils:               serviceUtils,
 		clusterName:                clusterName,
+		region:                     region,
 		vpcID:                      vpcID,
 		defaultTags:                defaultTags,
 		externalManagedTags:        sets.NewString(externalManagedTags...),
@@ -92,6 +93,7 @@ type defaultModelBuilder struct {
 	disableRestrictedSGRules   bool
 
 	clusterName               string
+	region                    string
 	vpcID                     string
 	defaultTags               map[string]string
 	externalManagedTags       sets.String
@@ -108,6 +110,7 @@ func (b *defaultModelBuilder) Build(ctx context.Context, service *corev1.Service
 	stack := core.NewDefaultStack(core.StackID(k8s.NamespacedName(service)))
 	task := &defaultModelBuildTask{
 		clusterName:                b.clusterName,
+		region:                     b.region,
 		vpcID:                      b.vpcID,
 		annotationParser:           b.annotationParser,
 		subnetsResolver:            b.subnetsResolver,
@@ -170,6 +173,7 @@ func (b *defaultModelBuilder) Build(ctx context.Context, service *corev1.Service
 
 type defaultModelBuildTask struct {
 	clusterName                string
+	region                     string
 	vpcID                      string
 	annotationParser           annotations.Parser
 	subnetsResolver            networking.SubnetsResolver

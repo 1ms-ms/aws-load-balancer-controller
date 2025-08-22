@@ -772,7 +772,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
 						"service.beta.kubernetes.io/aws-load-balancer-access-log-s3-bucket-prefix":       "bkt-pfx",
 						"service.beta.kubernetes.io/aws-load-balancer-cross-zone-load-balancing-enabled": "true",
 						"service.beta.kubernetes.io/aws-load-balancer-ssl-ports":                         "83",
-						"service.beta.kubernetes.io/aws-load-balancer-ssl-cert":                          "certArn1,certArn2",
+						"service.beta.kubernetes.io/aws-load-balancer-ssl-cert":                          "arn:aws:acm:eu-central-1:444455556666:certificate/certificate_ID,arn:aws:acm:eu-central-1:444455556666:certificate/certificate_ID2",
 					},
 					UID: "7ab4be33-11c2-4a7b-b655-7add8affab36",
 				},
@@ -853,10 +853,10 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
              ],
              "certificates":[
                 {
-                   "certificateARN":"certArn1"
+                   "certificateARN":"arn:aws:acm:eu-central-1:444455556666:certificate/certificate_ID"
                 },
                 {
-                   "certificateARN":"certArn2"
+                   "certificateARN":"arn:aws:acm:eu-central-1:444455556666:certificate/certificate_ID2"
                 }
              ]
           }
@@ -4080,7 +4080,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
 						"service.beta.kubernetes.io/aws-load-balancer-access-log-s3-bucket-prefix":       "bkt-pfx",
 						"service.beta.kubernetes.io/aws-load-balancer-cross-zone-load-balancing-enabled": "true",
 						"service.beta.kubernetes.io/aws-load-balancer-ssl-ports":                         "83",
-						"service.beta.kubernetes.io/aws-load-balancer-ssl-cert":                          "certArn1,certArn2",
+						"service.beta.kubernetes.io/aws-load-balancer-ssl-cert":                          "arn:aws:acm:eu-central-1:444455556666:certificate/certificate_ID,arn:aws:acm:eu-central-1:444455556666:certificate/certificate_ID2",
 					},
 					UID: "7ab4be33-11c2-4a7b-b655-7add8affab36",
 				},
@@ -4190,10 +4190,10 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
              ],
              "certificates":[
                 {
-                   "certificateARN":"certArn1"
+                   "certificateARN":"arn:aws:acm:eu-central-1:444455556666:certificate/certificate_ID"
                 },
                 {
-                   "certificateARN":"certArn2"
+                   "certificateARN":"arn:aws:acm:eu-central-1:444455556666:certificate/certificate_ID2"
                 }
              ]
           }
@@ -7174,7 +7174,7 @@ func Test_defaultModelBuilderTask_Build(t *testing.T) {
 				}
 				mockMetricsCollector := lbcmetrics.NewMockCollector()
 				builder := NewDefaultModelBuilder(annotationParser, subnetsResolver, vpcInfoProvider, "vpc-xxx", trackingProvider, elbv2TaggingManager, ec2Client, featureGates,
-					"my-cluster", nil, nil, "ELBSecurityPolicy-2016-08", defaultTargetType, defaultLoadBalancerScheme, enableIPTargetType, serviceUtils,
+					"my-cluster", "eu-central-1", nil, nil, "ELBSecurityPolicy-2016-08", defaultTargetType, defaultLoadBalancerScheme, enableIPTargetType, serviceUtils,
 					backendSGProvider, sgResolver, tt.enableBackendSG, tt.enableManageBackendSGRules, tt.disableRestrictedSGRules, logr.New(&log.NullLogSink{}), mockMetricsCollector, tcpUdpEnabled)
 				ctx := context.Background()
 				stack, _, _, err := builder.Build(ctx, tt.svc, mockMetricsCollector)
