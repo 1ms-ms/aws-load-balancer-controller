@@ -126,6 +126,16 @@ type listenPortConfig struct {
 
 func (t *defaultModelBuildTask) computeIngressListenPortConfigByPort(ctx context.Context, ing *ClassifiedIngress) (map[int32]listenPortConfig, error) {
 	explicitTLSCertARNs := t.computeIngressExplicitTLSCertARNs(ctx, ing)
+	for _, cert := range explicitTLSCertARNs {
+		certificate := elbv2model.Certificate{CertificateARN: awssdk.String(cert)}
+
+		// Compare region from certificate and the one used by LBC
+		certificateRegion := t.getRegionFromARN(*certificate.CertificateARN)
+		if certificateRegion != t.region {
+			return nil, errors.Errorf("certificate region %v doesn't match load balancer region %v", certificateRegion, t.region)
+		}
+	}
+
 	explicitSSLPolicy := t.computeIngressExplicitSSLPolicy(ctx, ing)
 	prefixListIDs := t.computeIngressExplicitPrefixListIDs(ctx, ing)
 	inboundCIDRv4s, inboundCIDRV6s, err := t.computeIngressExplicitInboundCIDRs(ctx, ing)
@@ -504,4 +514,14 @@ func (t *defaultModelBuildTask) buildIngressListenerAttributes(ctx context.Conte
 		})
 	}
 	return attributes, nil
+}
+
+func (t *defaultModelBuildTask) getRegionFromARN(arn string) string {
+	if strings.HasPrefix(arn, "arn:") {
+		arnElements := strings.Split(arn, ":")
+		if len(arnElements) > 3 {
+			return arnElements[3]
+		}
+	}
+	return ""
 }

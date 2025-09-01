@@ -55,7 +55,7 @@ func NewDefaultModelBuilder(k8sClient client.Client, eventRecorder record.EventR
 	annotationParser annotations.Parser, subnetsResolver networkingpkg.SubnetsResolver,
 	authConfigBuilder AuthConfigBuilder, enhancedBackendBuilder EnhancedBackendBuilder,
 	trackingProvider tracking.Provider, elbv2TaggingManager elbv2deploy.TaggingManager, featureGates config.FeatureGates,
-	vpcID string, clusterName string, defaultTags map[string]string, externalManagedTags []string, defaultSSLPolicy string, defaultTargetType string, defaultLoadBalancerScheme string,
+	vpcID string, clusterName string, region string, defaultTags map[string]string, externalManagedTags []string, defaultSSLPolicy string, defaultTargetType string, defaultLoadBalancerScheme string,
 	backendSGProvider networkingpkg.BackendSGProvider, sgResolver networkingpkg.SecurityGroupResolver,
 	enableBackendSG bool, defaultEnableManageBackendSGRules bool, disableRestrictedSGRules bool, allowedCAARNs []string, enableIPTargetType bool, logger logr.Logger, metricsCollector lbcmetrics.MetricCollector) *defaultModelBuilder {
 	certDiscovery := certs.NewACMCertDiscovery(acmClient, allowedCAARNs, logger)
@@ -67,6 +67,7 @@ func NewDefaultModelBuilder(k8sClient client.Client, eventRecorder record.EventR
 		elbv2Client:                elbv2Client,
 		vpcID:                      vpcID,
 		clusterName:                clusterName,
+		region:                     region,
 		annotationParser:           annotationParser,
 		subnetsResolver:            subnetsResolver,
 		backendSGProvider:          backendSGProvider,
@@ -106,6 +107,7 @@ type defaultModelBuilder struct {
 
 	vpcID       string
 	clusterName string
+	region      string
 
 	annotationParser           annotations.Parser
 	subnetsResolver            networkingpkg.SubnetsResolver
@@ -147,6 +149,7 @@ func (b *defaultModelBuilder) Build(ctx context.Context, ingGroup Group, metrics
 		wafv2Client:                b.wafv2Client,
 		vpcID:                      b.vpcID,
 		clusterName:                b.clusterName,
+		region:                     b.region,
 		annotationParser:           b.annotationParser,
 		subnetsResolver:            b.subnetsResolver,
 		certDiscovery:              b.certDiscovery,
@@ -207,6 +210,7 @@ type defaultModelBuildTask struct {
 	wafv2Client            services.WAFv2
 	vpcID                  string
 	clusterName            string
+	region                 string
 	annotationParser       annotations.Parser
 	subnetsResolver        networkingpkg.SubnetsResolver
 	backendSGProvider      networkingpkg.BackendSGProvider
